@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glucides</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#EEF1EC">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{
+  --bg:#EEF1EC; --card:#FFFFFF; --ink:#16211B; --muted:#5B6A60; --line:#D5DCD3;
+  --accent:#2B4FD8; --accent-ink:#FFFFFF; --warn:#B7791F; --ok:#2F7D4F; --bad:#B3402F;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121A15; --card:#1B261F; --ink:#E8EFE9; --muted:#97A79C; --line:#2C3A31;
+    --accent:#7C9BFF; --accent-ink:#0E1530; --warn:#E3B04B; --ok:#6CCB92; --bad:#F08A78;
+  }
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
+  font:16px/1.45 ui-rounded,"Avenir Next","Segoe UI",system-ui,sans-serif;
+  padding:env(safe-area-inset-top,0px) 16px calc(24px + env(safe-area-inset-bottom,0px));}
+main{max-width:520px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 0 8px}
+h1{font-size:1.4rem;margin:0;letter-spacing:-.01em}
+h2{font-size:1rem;margin:0 0 8px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.icon-btn{background:none;border:1px solid var(--line);border-radius:10px;padding:6px 12px}
+.primary{width:100%;background:var(--accent);color:var(--accent-ink);border:0;border-radius:14px;padding:16px;font-weight:700;font-size:1.05rem}
+.primary:disabled{opacity:.5}
+.secondary{background:none;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
+.hidden{display:none}
+#preview{width:100%;max-height:260px;object-fit:cover;border-radius:10px;display:block;margin-bottom:10px}
+input[type=text],input[type=password],input[type=number],textarea{
+  width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+label{display:block;font-size:.9rem;color:var(--muted);margin:10px 0 4px}
+.total{font-size:3.4rem;font-weight:800;letter-spacing:-.03em;line-height:1}
+.total small{font-size:1.1rem;font-weight:600;color:var(--muted);margin-left:4px}
+.conf{display:inline-block;font-size:.85rem;border:1px solid currentColor;border-radius:999px;padding:2px 10px;margin-top:8px}
+.conf.haute{color:var(--ok)} .conf.moyenne{color:var(--warn)} .conf.faible{color:var(--bad)}
+.row{display:grid;grid-template-columns:1fr 84px 64px 32px;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row .name{font-weight:600;overflow-wrap:anywhere}
+.row .sub{font-size:.8rem;color:var(--muted);font-weight:400}
+.row input{padding:8px;text-align:right}
+.row .c{text-align:right;font-weight:700}
+.row .x{background:none;border:0;font-size:1.2rem;color:var(--muted)}
+.cols{display:grid;grid-template-columns:1fr 84px 64px 32px;gap:8px;font-size:.8rem;color:var(--muted)}
+.cols span:nth-child(2),.cols span:nth-child(3){text-align:right}
+.note{font-size:.85rem;color:var(--muted)}
+.err{color:var(--bad);font-weight:600}
+.hist{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:.95rem}
+.hist:first-of-type{border-top:0}
+.hist b{white-space:nowrap}
+@media (prefers-reduced-motion: no-preference){ .primary{transition:transform .1s} .primary:active{transform:scale(.98)} }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Glucides</h1>
+    <button class="icon-btn" id="btnSettings" aria-expanded="false">Réglages</button>
+  </header>
+
+  <section class="panel hidden" id="settings">
+    <h2>Réglages</h2>
+    <label for="apiKey">Clé API Anthropic</label>
+    <input type="password" id="apiKey" autocomplete="off" placeholder="sk-ant-...">
+    <label for="model">Modèle</label>
+    <input type="text" id="model" value="claude-sonnet-5-5">
+    <p class="note">La clé reste stockée uniquement dans ce navigateur, sur cet appareil.</p>
+    <button class="secondary" id="saveSettings">Enregistrer</button>
+  </section>
+
+  <section class="panel">
+    <img id="preview" class="hidden" alt="Photo du plat">
+    <input type="file" id="file" accept="image/*" capture="environment" class="hidden">
+    <button class="secondary" id="btnPhoto" style="width:100%">Prendre ou choisir une photo</button>
+    <label for="hint">Précision facultative (ex. « assiette de 26 cm », « sans sauce »)</label>
+    <input type="text" id="hint">
+    <div style="height:12px"></div>
+    <button class="primary" id="btnAnalyze" disabled>Estimer les glucides</button>
+    <p id="status" class="note" role="status"></p>
+  </section>
+
+  <section class="panel hidden" id="result">
+    <div class="total"><span id="total">0</span><small>g de glucides</small></div>
+    <span class="conf" id="conf"></span>
+    <p class="note" id="comment"></p>
+    <div class="cols"><span>Aliment</span><span>Poids (g)</span><span>Gluc. (g)</span><span></span></div>
+    <div id="items"></div>
+    <div style="height:10px"></div>
+    <button class="secondary" id="btnSave">Enregistrer ce repas</button>
+    <p class="note">Estimation à partir d'une photo, souvent à 15 à 25 % près. Corrige les poids pour affiner le calcul.</p>
+  </section>
+
+  <section class="panel hidden" id="historyPanel">
+    <h2>Historique</h2>
+    <div id="history"></div>
+    <button class="secondary" id="btnClear" style="margin-top:10px">Vider l'historique</button>
+  </section>
+</main>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var imageB64 = null, items = [], meta = {};
+
+  function store(k, v){ try{ if(v===undefined){ return localStorage.getItem(k); } localStorage.setItem(k, v); }catch(e){ return null; } }
+
+  // Réglages
+  $('apiKey').value = store('apiKey') || '';
+  $('model').value = store('model') || 'claude-sonnet-5-5';
+  if(!store('apiKey')){ $('settings').classList.remove('hidden'); }
+  $('btnSettings').onclick = function(){
+    var s = $('settings'); s.classList.toggle('hidden');
+    this.setAttribute('aria-expanded', String(!s.classList.contains('hidden')));
+  };
+  $('saveSettings').onclick = function(){
+    store('apiKey', $('apiKey').value.trim());
+    store('model', $('model').value.trim() || 'claude-sonnet-5-5');
+    $('settings').classList.add('hidden');
+    $('status').textContent = 'Réglages enregistrés.';
+  };
+
+  // Photo
+  $('btnPhoto').onclick = function(){ $('file').click(); };
+  $('file').onchange = function(){
+    var f = this.files && this.files[0]; if(!f) return;
+    var img = new Image(), url = URL.createObjectURL(f);
+    img.onload = function(){
+      var max = 1280, r = Math.min(1, max/Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.width*r); c.height = Math.round(img.height*r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      var data = c.toDataURL('image/jpeg', 0.85);
+      imageB64 = data.split(',')[1];
+      $('preview').src = data; $('preview').classList.remove('hidden');
+      $('btnAnalyze').disabled = false;
+      $('result').classList.add('hidden');
+      $('status').textContent = '';
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  // Analyse
+  var SYSTEM = "Tu es un assistant de nutrition. On te donne la photo d'un plat. " +
+    "Identifie chaque aliment visible, estime son poids en grammes tel que servi (cuit si cuit), " +
+    "et donne ses glucides pour 100 g (glucides totaux, hors fibres non comptées). " +
+    "Utilise l'assiette, les couverts ou la main comme échelle si visibles. " +
+    "Réponds UNIQUEMENT avec du JSON, sans texte autour, sans balises, au format : " +
+    '{"items":[{"name":"...","grams":0,"carbs_per_100g":0}],"confidence":"haute|moyenne|faible","comment":"une phrase sur les incertitudes principales"}. ' +
+    "Les noms sont en français. N'invente pas d'aliment invisible; signale les sauces ou ingrédients cachés dans le commentaire.";
+
+  $('btnAnalyze').onclick = async function(){
+    var key = store('apiKey');
+    if(!key){ $('settings').classList.remove('hidden'); $('status').innerHTML = '<span class="err">Ajoute ta clé API dans les réglages.</span>'; return; }
+    this.disabled = true; $('status').textContent = 'Analyse en cours...';
+    try{
+      var hint = $('hint').value.trim();
+      var res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'content-type':'application/json',
+          'x-api-key': key,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({
+          model: store('model') || 'claude-sonnet-5-5',
+          max_tokens: 1200,
+          system: SYSTEM,
+          messages:[{role:'user', content:[
+            {type:'image', source:{type:'base64', media_type:'image/jpeg', data:imageB64}},
+            {type:'text', text:'Estime les glucides de ce plat.' + (hint ? ' Précision : ' + hint : '')}
+          ]}]
+        })
+      });
+      var data = await res.json();
+      if(!res.ok){ throw new Error((data.error && data.error.message) || ('Erreur ' + res.status)); }
+      var text = data.content.filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('');
+      var a = text.indexOf('{'), b = text.lastIndexOf('}');
+      var parsed = JSON.parse(text.slice(a, b+1));
+      items = (parsed.items || []).map(function(i){
+        return {name:String(i.name), grams:Number(i.grams)||0, c100:Number(i.carbs_per_100g)||0};
+      });
+      meta = {confidence: parsed.confidence || 'moyenne', comment: parsed.comment || ''};
+      render();
+      $('status').textContent = '';
+    }catch(e){
+      $('status').innerHTML = '<span class="err"></span>';
+      $('status').firstChild.textContent = 'Échec : ' + e.message;
+    }finally{
+      this.disabled = false;
+    }
+  };
+
+  function total(){ return items.reduce(function(s,i){ return s + i.grams*i.c100/100; }, 0); }
+
+  function render(){
+    var box = $('items'); box.innerHTML = '';
+    items.forEach(function(it, idx){
+      var row = document.createElement('div'); row.className = 'row';
+      var n = document.createElement('div'); n.className = 'name';
+      n.textContent = it.name;
+      var sub = document.createElement('div'); sub.className = 'sub';
+      sub.textContent = it.c100 + ' g / 100 g';
+      n.appendChild(sub);
+      var g = document.createElement('input');
+      g.type = 'number'; g.inputMode = 'decimal'; g.min = 0; g.value = Math.round(it.grams);
+      g.setAttribute('aria-label', 'Poids de ' + it.name + ' en grammes');
+      var c = document.createElement('div'); c.className = 'c';
+      c.textContent = (it.grams*it.c100/100).toFixed(1);
+      g.oninput = function(){
+        it.grams = Number(g.value) || 0;
+        c.textContent = (it.grams*it.c100/100).toFixed(1);
+        $('total').textContent = Math.round(total());
+      };
+      var x = document.createElement('button'); x.className = 'x'; x.textContent = '×';
+      x.setAttribute('aria-label', 'Retirer ' + it.name);
+      x.onclick = function(){ items.splice(idx,1); render(); };
+      row.appendChild(n); row.appendChild(g); row.appendChild(c); row.appendChild(x);
+      box.appendChild(row);
+    });
+    $('total').textContent = Math.round(total());
+    var cf = $('conf'); cf.textContent = 'Confiance ' + meta.confidence;
+    cf.className = 'conf ' + meta.confidence;
+    $('comment').textContent = meta.comment;
+    $('result').classList.remove('hidden');
+  }
+
+  // Historique
+  function loadHist(){ try{ return JSON.parse(store('history') || '[]'); }catch(e){ return []; } }
+  function renderHist(){
+    var h = loadHist(), box = $('history'); box.innerHTML = '';
+    $('historyPanel').classList.toggle('hidden', h.length === 0);
+    h.forEach(function(m){
+      var d = document.createElement('div'); d.className = 'hist';
+      var l = document.createElement('span');
+      l.textContent = new Date(m.date).toLocaleString('fr-BE', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) + ' — ' + m.names;
+      var b = document.createElement('b'); b.textContent = m.total + ' g';
+      d.appendChild(l); d.appendChild(b); box.appendChild(d);
+    });
+  }
+  $('btnSave').onclick = function(){
+    var h = loadHist();
+    h.unshift({date:Date.now(), total:Math.round(total()), names:items.map(function(i){return i.name;}).join(', ')});
+    store('history', JSON.stringify(h.slice(0,100)));
+    renderHist(); $('status').textContent = 'Repas enregistré.';
+  };
+  $('btnClear').onclick = function(){
+    if(confirm('Vider tout l\'historique ?')){ store('history', '[]'); renderHist(); }
+  };
+  renderHist();
+
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+})();
+</script>
+</body>
+</html>

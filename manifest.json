@@ -1,0 +1,13 @@
+{
+  "name": "Glucides",
+  "short_name": "Glucides",
+  "description": "Estimation des glucides d'un plat à partir d'une photo",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EC",
+  "theme_color": "#EEF1EC",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
